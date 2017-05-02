@@ -268,6 +268,18 @@ class BBTree(BinaryTree):
         else:
             raise Exception('%s is not a valid display mode.' %mode)
 
+    def rgb(self, value, minimum, maximum):
+        '''
+        compute heatmap-like rgb value
+        '''
+        value, minimum, maximum = float(value), float(minimum), float(maximum)
+#         value = math.log10(float(value))
+        ratio = 2 * (value - minimum) / (maximum - minimum)
+        b = int(max(0, 255 * (1 - ratio)))
+        r = int(max(0, 255 * (ratio - 1)))
+        g = 255 - b - r
+        return '{0:02x}{1:02x}{2:02x}'.format(r+(g/2), 0, b+(g/2))
+
     def display(self, item = 'all', basename = 'graph', format='png', count=None):
         '''
         Displays/Saves images requested. BranchAndBound method calls this method
