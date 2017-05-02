@@ -1748,7 +1748,7 @@ class BBTree(BinaryTree):
         """
         # Parse remaining tokens
         if len(remaining_tokens) == 2 or len(remaining_tokens) > 3:
-            print 'Invalid line: %s branched %s %s %s %s' % (
+            print 'Invalid line: %s candidate %s %s %s %s' % (
                     self._time, node_id, parent_id, branch_direction,
                     ' '.join(remaining_tokens))
             print 'Should match: <time> candidate <node id> <parent id> '
