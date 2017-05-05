@@ -543,7 +543,6 @@ class BBTree(BinaryTree):
                 self.set_node_attr(id, 'init_log_cond', condition_begin)
                 self.set_node_attr(id, 'final_log_cond', condition_end)
         elif self.root is None:
-            print 'adding root', id
             self.add_root(id, status = status, lp_bound = lp_bound,
                           integer_infeasibility_count = integer_infeasibility_count,
                           integer_infeasibility_sum = integer_infeasibility_sum,
