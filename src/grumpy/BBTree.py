@@ -302,23 +302,36 @@ class BBTree(BinaryTree):
         '''
         if self.attr['layout'] != 'bak':
             if 'init_log_cond' in self.root.attr:
-                max_log_cond = 9
-                min_log_cond = 1
-#                 for n in self.nodes.values():
-#                     if 'init_log_cond' in n.attr:
-#                         max_log_cond = max(n.attr['init_log_cond'], max_log_cond)
-#                         min_log_cond = min(n.attr['init_log_cond'], min_log_cond)
+                # determine range of condition numbers
+                max_log_cond = 1
+                min_log_cond = 20
+                for n in self.nodes.values():
+                    if 'init_log_cond' in n.attr:
+                        max_log_cond = max(n.attr['init_log_cond'], max_log_cond)
+                        min_log_cond = min(n.attr['init_log_cond'], min_log_cond)
+                max_log_cond2 = 1
+                min_log_cond2 = 20
+                for n in self.nodes.values():
+                    if 'final_log_cond' in n.attr:
+                        max_log_cond2 = max(n.attr['final_log_cond'], max_log_cond2)
+                        min_log_cond2 = min(n.attr['final_log_cond'], min_log_cond2)
                 for n in self.nodes.values():
                     if 'init_log_cond' in n.attr:
                         log_begin = n.attr['init_log_cond']
                         log_end = n.attr['final_log_cond']
-                        color = self.rgb(log_begin, min_log_cond, max_log_cond)
-                        n.attr['label'] = '%.0f \n %.0f' % (log_begin, log_end)
+                        color = self.rgb(max(log_begin, log_end), 1, 7)
+                        n.attr['label'] = '%.1f\n%.1f' % (log_begin, log_end)
                         n.attr['color'] = '#' + color
                         n.attr['fillcolor'] = '#' + color
                         n.attr['style'] = 'filled'
                     else:
-                        n.attr['label'] = ' '
+                        n.attr['label'] = '--'
+                legendnode = 'init: min= %.1f, max= %.1f\n' % (min_log_cond, max_log_cond)
+                legendnode += 'final: min= %.1f, max= %.1f' % (min_log_cond2, max_log_cond2)
+                print legendnode
+                self.add_node(legendnode, color = '#' + self.rgb(max_log_cond2, 1, 6))
+                cluster_attrs = {'name':'Legend', 'label':'Condition number range (log10):'}
+                self.create_cluster([legendnode], cluster_attrs)
             BinaryTree.display(self)
             return
         if self.attr['display'] is 'off':
