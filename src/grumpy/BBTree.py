@@ -1607,16 +1607,26 @@ class BBTree(BinaryTree):
             print 'WARNING: Encountered "fathom" line before first incumbent.'
             print '  This may indicate an error in the input file.'
         # Parse remaining tokens
-        if len(remaining_tokens) > 1:
+        if len(remaining_tokens) > 3:
             print 'Invalid line: %s fathomed %s %s %s %s' % (
                     self._time, node_id, parent_id, branch_direction,
                     ' '.join(remaining_tokens))
             print 'Should match: <time> fathomed <node id> <parent id>'+\
-                '<branch direction> [<lp bound>]'
+                '<branch direction> [<lp bound> <init_condnumber> <final_condnumber>]'
             sys.exit(1)
+        lp_bound = None
+        condition_begin = None
+        condition_end = None
         if len(remaining_tokens) == 1:
             lp_bound = float(remaining_tokens[0])
-        else:
+        elif len(remaining_tokens) == 2:
+            condition_begin = math.log10(float(remaining_tokens[0]))
+            condition_end = math.log10(float(remaining_tokens[1]))
+        elif len(remaining_tokens) == 3:
+            lp_bound = float(remaining_tokens[0])
+            condition_begin = math.log10(float(remaining_tokens[1]))
+            condition_end = math.log10(float(remaining_tokens[2]))
+        if lp_bound is None:
             if (node_id in self.get_node_list() and
                 self.get_node_attr(node_id, 'lp_bound') is not None):
                 lp_bound = self.get_node_attr(node_id, 'lp_bound')
@@ -1631,12 +1641,10 @@ class BBTree(BinaryTree):
                     lp_bound > self._incumbent_value):
                     lp_bound = self._incumbent_value
         parent_node = self.get_node(parent_id)
-        self.AddOrUpdateNode(node_id, parent_id, branch_direction, 'fathomed',
-                             lp_bound,
-                             self.get_node_attr(parent_id,
-                                                'integer_infeasibility_count'),
-                             self.get_node_attr(parent_id,
-                                                'integer_infeasibility_sum'))
+        self.AddOrUpdateNode(node_id, parent_id, branch_direction, 'fathomed', lp_bound,
+                             self.get_node_attr(parent_id, 'integer_infeasibility_count'),
+                             self.get_node_attr(parent_id, 'integer_infeasibility_sum'),
+                             condition_begin, condition_end)
 
     def ProcessPregnantLine(self, node_id, parent_id, branch_direction,
                             remaining_tokens):
