@@ -268,17 +268,32 @@ class BBTree(BinaryTree):
         else:
             raise Exception('%s is not a valid display mode.' %mode)
 
-    def rgb(self, value, minimum, maximum):
+    def rgb(self, value, minimum, maximum, colors = 4):
         '''
-        compute heatmap-like rgb value
+        compute heatmap value as rgb
         '''
+        if colors == 4:
+            color = [[20,20,255], [20,255,20], [255,255,20], [255,20,20]]  # colors: blue, green, yellow, red
+        elif colors == 3:
+            color = [[20,20,255], [20,255,20], [255,20,20]]                # colors: blue, green, red
+        elif colors == 1:
+            color = [[220,220,220], [80,80,80]]                            # grayscale
+        else:
+            color = [[20,20,255], [255,20,20]]                             # colors: blue, red
+
+        ncolors = len(color)
         value, minimum, maximum = float(value), float(minimum), float(maximum)
-#         value = math.log10(float(value))
-        ratio = 2 * (value - minimum) / (maximum - minimum)
-        b = int(max(0, 255 * (1 - ratio)))
-        r = int(max(0, 255 * (ratio - 1)))
-        g = 255 - b - r
-        return '{0:02x}{1:02x}{2:02x}'.format(r+(g/2), 0, b+(g/2))
+        value = (value - minimum) / (maximum - minimum)
+        value = (ncolors-1) * min(1, max(value, 0))
+        idx1  = min(ncolors-2, int(value))
+        idx2  = int(idx1+1)
+        fractBetween = value - idx1
+
+        r = int((color[idx2][0] - color[idx1][0])*fractBetween + color[idx1][0])
+        g = int((color[idx2][1] - color[idx1][1])*fractBetween + color[idx1][1])
+        b = int((color[idx2][2] - color[idx1][2])*fractBetween + color[idx1][2])
+
+        return '{0:02x}{1:02x}{2:02x}'.format(r, g, b)
 
     def display(self, item = 'all', basename = 'graph', format='png', count=None):
         '''
