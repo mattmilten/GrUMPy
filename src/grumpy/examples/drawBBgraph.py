@@ -11,8 +11,12 @@ def drawgraph(inputfile, savefile=None, silent=False):
     print('processing: '+inputfile)
     bt = BBTree()
     with open(inputfile, 'r') as f:
+        linecount = 0
         for line in f:
             bt.ProcessLine(line)
+            linecount += 1
+            if linecount == 10000:
+                break
 
     if not silent:
         bt.set_display_mode('xdot')
