@@ -301,37 +301,6 @@ class BBTree(BinaryTree):
         to visualize the branch and bound tree.
         '''
         if self.attr['layout'] != 'bak':
-            if 'init_log_cond' in self.root.attr:
-                # determine range of condition numbers
-                max_log_cond = 1
-                min_log_cond = 20
-                for n in self.nodes.values():
-                    if 'init_log_cond' in n.attr:
-                        max_log_cond = max(n.attr['init_log_cond'], max_log_cond)
-                        min_log_cond = min(n.attr['init_log_cond'], min_log_cond)
-                max_log_cond2 = 1
-                min_log_cond2 = 20
-                for n in self.nodes.values():
-                    if 'final_log_cond' in n.attr:
-                        max_log_cond2 = max(n.attr['final_log_cond'], max_log_cond2)
-                        min_log_cond2 = min(n.attr['final_log_cond'], min_log_cond2)
-                for n in self.nodes.values():
-                    if 'init_log_cond' in n.attr:
-                        log_begin = n.attr['init_log_cond']
-                        log_end = n.attr['final_log_cond']
-                        color = self.rgb(max(log_begin, log_end), 1, 7)
-                        n.attr['label'] = '%.1f\n%.1f' % (log_begin, log_end)
-                        n.attr['color'] = '#' + color
-                        n.attr['fillcolor'] = '#' + color
-                        n.attr['style'] = 'filled'
-                    else:
-                        n.attr['label'] = '--'
-                legendnode = 'init: min= %.1f, max= %.1f\n' % (min_log_cond, max_log_cond)
-                legendnode += 'final: min= %.1f, max= %.1f' % (min_log_cond2, max_log_cond2)
-                print legendnode
-                self.add_node(legendnode, color = '#' + self.rgb(max_log_cond2, 1, 6))
-                cluster_attrs = {'name':'Legend', 'label':'Condition number range (log10):'}
-                self.create_cluster([legendnode], cluster_attrs)
             BinaryTree.display(self)
             return
         if self.attr['display'] is 'off':
@@ -512,6 +481,7 @@ class BBTree(BinaryTree):
     def AddOrUpdateNode(self, id, parent_id, branch_direction, status, lp_bound,
                         integer_infeasibility_count, integer_infeasibility_sum,
                         condition_begin = None, condition_end = None,
+                        condition_min = None, condition_max = None, ncuts = 0,
                         **attrs):
         '''
         This method is designed to update nodes (in BAK) but we use it for
@@ -527,10 +497,13 @@ class BBTree(BinaryTree):
         integer_infeasibility_sum -> node
         parent_id -> node
         '''
-        if (condition_begin is not None) and (condition_end is not None):
+#         if (condition_begin is not None) and (condition_end is not None):
             #Figure out the color
-            attrs['init_log_cond'] = condition_begin
-            attrs['final_log_cond'] = condition_end
+#             attrs['init_log_cond'] = condition_begin
+#             attrs['final_log_cond'] = condition_end
+#             attrs['min_log_cond'] = condition_min
+#             attrs['max_log_cond'] = condition_max
+#             attrs['ncuts'] = ncuts
         if id in self.neighbors:
             # node already exists, update attributes
             self.set_node_attr(id, 'status', status)
@@ -542,6 +515,9 @@ class BBTree(BinaryTree):
             if (condition_begin is not None) and (condition_end is not None):
                 self.set_node_attr(id, 'init_log_cond', condition_begin)
                 self.set_node_attr(id, 'final_log_cond', condition_end)
+                self.set_node_attr(id, 'min_log_cond', condition_min)
+                self.set_node_attr(id, 'max_log_cond', condition_max)
+                self.set_node_attr(id, 'ncuts', ncuts)
         elif self.root is None:
             self.add_root(id, status = status, lp_bound = lp_bound,
                           integer_infeasibility_count = integer_infeasibility_count,
@@ -1644,15 +1620,24 @@ class BBTree(BinaryTree):
         lp_bound = None
         condition_begin = None
         condition_end = None
+        condition_min = None
+        condition_max = None
+        ncuts = 0
         if len(remaining_tokens) == 1:
             lp_bound = float(remaining_tokens[0])
-        elif len(remaining_tokens) == 2:
+        elif len(remaining_tokens) == 5:
             condition_begin = math.log10(float(remaining_tokens[0]))
             condition_end = math.log10(float(remaining_tokens[1]))
-        elif len(remaining_tokens) == 3:
+            condition_min = math.log10(float(remaining_tokens[2]))
+            condition_max = math.log10(float(remaining_tokens[3]))
+            ncuts = int(remainging_tokens[4])
+        elif len(remaining_tokens) == 6:
             lp_bound = float(remaining_tokens[0])
             condition_begin = math.log10(float(remaining_tokens[1]))
             condition_end = math.log10(float(remaining_tokens[2]))
+            condition_min = math.log10(float(remaining_tokens[3]))
+            condition_max = math.log10(float(remaining_tokens[4]))
+            ncuts = int(remainging_tokens[5])
         if lp_bound is None:
             if (node_id in self.get_node_list() and
                 self.get_node_attr(node_id, 'lp_bound') is not None):
@@ -1671,7 +1656,7 @@ class BBTree(BinaryTree):
         self.AddOrUpdateNode(node_id, parent_id, branch_direction, 'fathomed', lp_bound,
                              self.get_node_attr(parent_id, 'integer_infeasibility_count'),
                              self.get_node_attr(parent_id, 'integer_infeasibility_sum'),
-                             condition_begin, condition_end)
+                             condition_begin, condition_end, condition_min, condition_max, ncuts)
 
     def ProcessPregnantLine(self, node_id, parent_id, branch_direction,
                             remaining_tokens):
@@ -1716,7 +1701,7 @@ class BBTree(BinaryTree):
             after any common tokens are processed.
         """
         # Parse remaining tokens
-        if len(remaining_tokens) not in [3, 5]:
+        if len(remaining_tokens) not in [3, 8]:
             print 'Invalid line: %s branched %s %s %s %s' % (
                     self._time, node_id, parent_id, branch_direction,
                     ' '.join(remaining_tokens))
@@ -1730,14 +1715,21 @@ class BBTree(BinaryTree):
         integer_infeasibility_count = int(remaining_tokens[2])
         condition_begin = None
         condition_end = None
-        if len(remaining_tokens) == 5:
+        condition_min = None
+        condition_max = None
+        ncuts = 0
+        if len(remaining_tokens) == 8:
             # Collect conditions numbers
             condition_begin = math.log10(float(remaining_tokens[3]))
             condition_end = math.log10(float(remaining_tokens[4]))
+            condition_min = math.log10(float(remaining_tokens[5]))
+            condition_max = math.log10(float(remaining_tokens[6]))
+            ncuts = int(remaining_tokens[7])
+            
         self.AddOrUpdateNode(node_id, parent_id, branch_direction, 'branched',
                              lp_bound, integer_infeasibility_count,
                              integer_infeasibility_sum, condition_begin,
-                             condition_end)
+                             condition_end, condition_min, condition_max, ncuts)
 
     def ProcessInfeasibleLine(self, node_id, parent_id, branch_direction,
                               remaining_tokens):
@@ -1759,10 +1751,18 @@ class BBTree(BinaryTree):
             print 'Should match: <time> infeasible <node id> <parent id> '
             print '<branch direction>'
             sys.exit(1)
+        lp_bound = None
+        ii_count = None
+        ii_sum = None
         # Use parent values if the node does not have its own
-        lp_bound = self.get_node_attr(parent_id, 'lp_bound')
-        ii_count = self.get_node_attr(parent_id, 'integer_infeasibility_count')
-        ii_sum = self.get_node_attr(parent_id, 'integer_infeasibility_sum')
+        if parent_id is not None:
+            lp_bound = self.get_node_attr(parent_id, 'lp_bound')
+            condition_begin = None
+            condition_end = None
+            condition_min = None
+            condition_max = None
+            ncuts = 0
+
         if node_id in self.get_node_list():
             if self.get_node_attr(node_id, 'lp_bound') is not None:
                 lp_bound = self.get_node_attr(node_id, 'lp_bound')
@@ -1773,13 +1773,16 @@ class BBTree(BinaryTree):
             if (self.get_node_attr(node_id, 'integer_infeasibility_sum')
                 is not None):
                 ii_sum = self.get_node_attr(node_id,'integer_infeasibility_sum')
-        if len(remaining_tokens) == 2:
+        if len(remaining_tokens) == 5:
             # Collect conditions numbers
             condition_begin = math.log10(float(remaining_tokens[0]))
             condition_end = math.log10(float(remaining_tokens[1]))
+            condition_min = math.log10(float(remaining_tokens[2]))
+            condition_max = math.log10(float(remaining_tokens[3]))
+            ncuts = int(remaining_tokens[4])
         self.AddOrUpdateNode(node_id, parent_id, branch_direction, 'infeasible',
                              lp_bound, ii_count, ii_sum, condition_begin,
-                             condition_end)
+                             condition_end, condition_min, condition_max, ncuts)
 
     def ProcessCandidateLine(self, node_id, parent_id, branch_direction,
                              remaining_tokens):
